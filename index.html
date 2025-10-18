@@ -1,36 +1,249 @@
 <!doctype html>
 <html>
-    <head>
-
-        <title>Communicating from Node.js to an Arduino</title>
+<head>
+    <meta charset="UTF-8">
+    <title>Track LED Pace Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #001A57;
+            color: white;
+            padding: 20px;
+        }
         
-        <script src='https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js'></script>
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
 
-    </head>
-    <body>
+        .card {
+            background: white;
+            color: #001A57;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
 
-        <h1>Communicating from Node.js to an Arduino</h1>
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+        }
 
-        <button id="lightOn">Turn Light On</button>
-        <button id="lightOff">Turn Light Off</button>
+        .btn-start {
+            background: #10b981;
+            color: white;
+        }
 
-        <script>
-            
+        .btn-stop {
+            background: #ef4444;
+            color: white;
+        }
+
+        .pace-card {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 3px solid #001A57;
+        }
+
+        .pace-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 15px 0;
+        }
+
+        input[type="color"] {
+            width: 60px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .pace-value {
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        h1, h2 {
+            margin-bottom: 20px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .status.stopped {
+            background: #e5e7eb;
+        }
+
+        .status.running {
+            background: #10b981;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center;">Track LED Pace Control</h1>
+
+        <div class="card">
+            <div style="text-align: center;">
+                <button class="btn-start" id="startBtn">START PACER</button>
+                <button class="btn-stop" id="stopBtn">STOP PACER</button>
+            </div>
+
+            <div class="status stopped" id="status">Ready to Start</div>
+
+            <h2>Pace 1</h2>
+            <div class="pace-card">
+                <div class="pace-header">
+                    <label>
+                        <input type="checkbox" id="pace1Enable" checked> Enable
+                    </label>
+                    <div>
+                        <label>Color: </label>
+                        <input type="color" id="pace1Color" value="#001A57">
+                    </div>
+                </div>
+                <div class="pace-value"><span id="pace1Value">60</span>s</div>
+                <input type="range" id="pace1Range" min="45" max="120" value="60" step="1">
+                <div>Starting Line: 
+                    <select id="pace1Start">
+                        <option value="0">0m</option>
+                        <option value="100">100m</option>
+                        <option value="200">200m</option>
+                        <option value="300">300m</option>
+                    </select>
+                </div>
+            </div>
+
+            <h2>Pace 2</h2>
+            <div class="pace-card">
+                <div class="pace-header">
+                    <label>
+                        <input type="checkbox" id="pace2Enable" checked> Enable
+                    </label>
+                    <div>
+                        <label>Color: </label>
+                        <input type="color" id="pace2Color" value="#6b7280">
+                    </div>
+                </div>
+                <div class="pace-value"><span id="pace2Value">75</span>s</div>
+                <input type="range" id="pace2Range" min="45" max="120" value="75" step="1">
+                <div>Starting Line: 
+                    <select id="pace2Start">
+                        <option value="0">0m</option>
+                        <option value="100">100m</option>
+                        <option value="200">200m</option>
+                        <option value="300">300m</option>
+                    </select>
+                </div>
+            </div>
+
+            <h2>Pace 3</h2>
+            <div class="pace-card">
+                <div class="pace-header">
+                    <label>
+                        <input type="checkbox" id="pace3Enable"> Enable
+                    </label>
+                    <div>
+                        <label>Color: </label>
+                        <input type="color" id="pace3Color" value="#8b5cf6">
+                    </div>
+                </div>
+                <div class="pace-value"><span id="pace3Value">65</span>s</div>
+                <input type="range" id="pace3Range" min="45" max="120" value="65" step="1">
+                <div>Starting Line: 
+                    <select id="pace3Start">
+                        <option value="0">0m</option>
+                        <option value="100">100m</option>
+                        <option value="200">200m</option>
+                        <option value="300">300m</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
         var socket = io();
+        let isRunning = false;
 
-        document.getElementById('lightOn').onclick = function() {
-            
-            socket.emit('lights', { "status":"1" });
-                
+        // Update pace value displays
+        document.getElementById('pace1Range').oninput = function() {
+            document.getElementById('pace1Value').textContent = this.value;
         };
-            
-        document.getElementById('lightOff').onclick = function(){
-               
-            socket.emit('lights', { "status":"0" });
-            
+        document.getElementById('pace2Range').oninput = function() {
+            document.getElementById('pace2Value').textContent = this.value;
         };
-        
-        </script>
-        
-    </body>
+        document.getElementById('pace3Range').oninput = function() {
+            document.getElementById('pace3Value').textContent = this.value;
+        };
+
+        // Start button
+        document.getElementById('startBtn').onclick = function() {
+            isRunning = true;
+            document.getElementById('status').textContent = 'Running';
+            document.getElementById('status').className = 'status running';
+
+            // Build command string
+            let cmd = 'START:';
+            
+            // Pace 1
+            if (document.getElementById('pace1Enable').checked) {
+                let split = document.getElementById('pace1Range').value;
+                let start = document.getElementById('pace1Start').value;
+                let color = document.getElementById('pace1Color').value;
+                cmd += split + ',' + start + ',' + color + '|';
+            }
+            
+            // Pace 2
+            if (document.getElementById('pace2Enable').checked) {
+                let split = document.getElementById('pace2Range').value;
+                let start = document.getElementById('pace2Start').value;
+                let color = document.getElementById('pace2Color').value;
+                cmd += split + ',' + start + ',' + color + '|';
+            }
+            
+            // Pace 3
+            if (document.getElementById('pace3Enable').checked) {
+                let split = document.getElementById('pace3Range').value;
+                let start = document.getElementById('pace3Start').value;
+                let color = document.getElementById('pace3Color').value;
+                cmd += split + ',' + start + ',' + color + '|';
+            }
+
+            console.log('Sending command:', cmd);
+            socket.emit('arduino', cmd);
+        };
+
+        // Stop button
+        document.getElementById('stopBtn').onclick = function() {
+            isRunning = false;
+            document.getElementById('status').textContent = 'Ready to Start';
+            document.getElementById('status').className = 'status stopped';
+            
+            socket.emit('arduino', 'STOP');
+        };
+    </script>
+</body>
 </html>

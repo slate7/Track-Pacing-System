@@ -1,9 +1,14 @@
 {
     "name": "basic-socket",
-    "version": "0.0.1",
-    "description": "Communication between HTML/JavaScript and Arduino",
+    "version": "0.0.2",
+    "description": "Communication between HTML/JavaScript and Arduino (with simulation mode)",
+    "main": "app.js",
+    "scripts": {
+        "start": "node app.js",
+        "start:arduino": "set ARDUINO_PORT=COM7 && node app.js"
+    },
     "dependencies": {
-        "socket.io": "^2.0.4",
-        "serialport": "^9.0.1"
+        "serialport": "^10.5.0",
+        "socket.io": "^2.0.4"
     }
 }
