@@ -1,3 +1,6 @@
-# How to Use RN
+# Instructions
 
-Run code, open website
+Download all files
+Upload .ino file to Arduino
+Keep ardunio plugged in to laptop
+Run code and control using localhost
