@@ -11,7 +11,7 @@
 #include <Adafruit_NeoPixel.h>
 
 #define LED_PIN       8     // data pin to your LED strip
-#define NUM_LEDS      60    // total LEDs on the strip
+#define NUM_LEDS      128   // total LEDs on the strip
 #define TRACK_METERS  400   // track lap distance (used to convert start line meters -> LED index)
 
 Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -32,6 +32,10 @@ bool running = false;
 
 void setup() {
   Serial.begin(9600); // must match app.js
+  while (!Serial) {
+    ; // wait for serial port to connect
+  }
+  
   strip.begin();
   strip.show(); // initialize all to 'off'
 
@@ -48,6 +52,7 @@ void setup() {
   }
 
   Serial.println("Arduino ready");
+  Serial.flush();
 }
 
 void loop() {
@@ -58,6 +63,7 @@ void loop() {
     if (line.length() > 0) {
       Serial.print("CMD recv: ");
       Serial.println(line);
+      Serial.flush();
       handleCommand(line);
     }
   }
@@ -77,10 +83,12 @@ void loop() {
         paces[i].lastStepTime = now;
       }
 
-      // write this pace's LED (we'll just set single LED per pace; add glow if desired)
-      int index = (paces[i].ledIndex + paces[i].position) % NUM_LEDS;
+      // write 10 LEDs in a line for this pace
       uint32_t c = paces[i].color;
-      strip.setPixelColor(index, c);
+      for (int j = 0; j < 10; j++) {
+        int index = (paces[i].ledIndex + paces[i].position + j) % NUM_LEDS;
+        strip.setPixelColor(index, c);
+      }
     }
 
     strip.show();
@@ -101,24 +109,29 @@ void handleCommand(const String &cmd) {
     unsigned long now = millis();
     for (int i = 0; i < 4; ++i) paces[i].lastStepTime = now;
     Serial.println("Pacer started");
+    Serial.flush();
   } else if (cmd == "STOP") {
     running = false;
     strip.clear();
     strip.show();
     Serial.println("Pacer stopped");
+    Serial.flush();
   } else if (cmd.startsWith("PACE:")) {
     // PACE:split|split|...
     String payload = cmd.substring(5);
     parsePacePayload(payload);
     Serial.println("Pace updated");
+    Serial.flush();
   } else if (cmd.startsWith("COLOR:")) {
     // COLOR:paceIndex,#RRGGBB
     String payload = cmd.substring(6);
     parseColorPayload(payload);
     Serial.println("Color updated");
+    Serial.flush();
   } else {
     Serial.print("Unknown cmd: ");
     Serial.println(cmd);
+    Serial.flush();
   }
 }
 
@@ -182,6 +195,7 @@ void parseStartPayload(String payload) {
     Serial.print(paces[idx].ledIndex);
     Serial.print(", color=0x");
     Serial.println(colorToHex(paces[idx].color));
+    Serial.flush();
 
     idx++;
   }
@@ -212,6 +226,7 @@ void parsePacePayload(String payload) {
       Serial.print(i+1);
       Serial.print(" new split ");
       Serial.println(splitSec);
+      Serial.flush();
     }
     i++;
   }
@@ -232,6 +247,7 @@ void parseColorPayload(String payload) {
   Serial.print(paceIndex+1);
   Serial.print(" color -> 0x");
   Serial.println(colorToHex(color));
+  Serial.flush();
 }
 
 // map meters (0..TRACK_METERS) to LED index (0..NUM_LEDS-1)
